@@ -1,6 +1,8 @@
 //! # GIMP-Directory Getter
 //!
-//! This helper looks for GIMP 3.x settings directories and prints their paths.
+//! Looks for GIMP 3 configuration/settings directories and outputs their paths.
+//!
+//! It supports …
 //! It supports filtering by release cycles (even/odd), by versions, installation sources (tags).
 
 use std::collections::HashSet;
@@ -28,7 +30,7 @@ fn main() {
     }
 
     if args.iter().any(|arg| arg == "-v" || arg == "--version") {
-        println!("gimp-dir-getter {}", env!("CARGO_PKG_VERSION"));
+        println!("gimp_dir_getter {}", env!("CARGO_PKG_VERSION"));
         return;
     }
 
@@ -44,12 +46,17 @@ fn main() {
         if let Ok(entries) = fs::read_dir(base_path) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if let Some(file_name) = path.file_name().and_then(|s| s.to_str()).filter(|_| path.is_dir()) {
+                if let Some(file_name) = path
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .filter(|_| path.is_dir())
+                {
                     // Check if the directory name represents a 3.x version
-                    if file_name.starts_with("3.") && file_name.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                        if should_include(file_name, tag, &config) {
-                            found_paths.push(path);
-                        }
+                    if file_name.starts_with("3.")
+                        && file_name.chars().all(|c| c.is_ascii_digit() || c == '.')
+                        && should_include(file_name, tag, &config)
+                    {
+                        found_paths.push(path);
                     }
                 }
             }
@@ -60,9 +67,9 @@ fn main() {
     found_paths.sort_by(|a, b| {
         let parent_a = a.parent();
         let parent_b = b.parent();
-        parent_a.cmp(&parent_b).then_with(|| {
-            get_version_vec(a).cmp(&get_version_vec(b))
-        })
+        parent_a
+            .cmp(&parent_b)
+            .then_with(|| get_version_vec(a).cmp(&get_version_vec(b)))
     });
 
     for path in &found_paths {
@@ -76,18 +83,20 @@ fn main() {
 
 /// Prints help information to standard output.
 fn print_help() {
-    println!("Usage:\n  gimp-dir-getter [OPTION…] ");
+    println!("It looks for GIMP 3 configuration/settings directories and outputs their paths.\n");
+    println!("\nUsage:\n  gimp_dir_getter [OPTION…] ");
     println!("\nExample usage:");
-    println!("  gimp-dir-getter --only=3.0,flatpak");
-    println!("  gimp-dir-getter --ignore=snap,flatpak --ignore=3.99");
+    println!("  gimp_dir_getter --only=3.1,flatpak");
+    println!("  gimp_dir_getter --only=flatpak --even");
+    println!("  gimp_dir_getter --ignore=snap,flatpak --ignore=3.99");
     println!("\nOptions:");
-    println!("  --even                    Only show even minor versions.");
-    println!("  --odd                     Only show odd minor versions.");
-    println!("  --only=<V|TAG>,<V|TAG>    Only include specific versions AND tags.");
-    println!("                            Tags: xdg, flatpak, snap, macos, windows");
-    println!("  --ignore=<V|TAG>,<V|TAG>  Exclude specific versions or tags.");
-    println!("  -h, --help                Show this help message");
-    println!("  -v, --version             Show program version");
+    println!("  -v, --version         Show program version");
+    println!("  -h, --help            Show this help message");
+    println!("  --even                Only include even minor versions.");
+    println!("  --odd                 Only include odd minor versions.");
+    println!("  --only=<V|T>,<V|T>    Only include specific Versions and/or Tags.");
+    println!("  --ignore=<V|T>,<V|T>  Exclude specific Versions and/or Tags.");
+    println!("                        Tags: env, xdg, flatpak, snap, macos, windows");
 }
 
 /// Parses command line arguments into a `Config` struct.
@@ -101,7 +110,7 @@ fn parse_args(args: &[String]) -> Config {
         odd_only: false,
     };
 
-    let tags_list = ["xdg", "flatpak", "snap", "macos", "windows"];
+    let tags_list = ["env", "xdg", "flatpak", "snap", "macos", "windows"];
 
     for arg in args.iter().skip(1) {
         if arg == "--even" {
@@ -144,6 +153,10 @@ fn get_search_paths() -> Vec<(PathBuf, &'static str)> {
 
     let mut search_paths = Vec::new();
 
+    if let Ok(gimp3_dir) = env::var("GIMP3_DIRECTORY") {
+        search_paths.push((PathBuf::from(gimp3_dir), "env"));
+    }
+
     #[cfg(target_os = "windows")]
     {
         if let Ok(app_data) = env::var("APPDATA") {
@@ -176,7 +189,7 @@ fn get_search_paths() -> Vec<(PathBuf, &'static str)> {
 /// Checks if a version/tag combination should be included based on the configuration.
 fn should_include(file_name: &str, tag: &str, config: &Config) -> bool {
     let components = get_version_components(file_name);
-    
+
     // Parity check (even/odd) on the minor version
     if components.len() >= 2 {
         let minor = components[1];
@@ -195,7 +208,7 @@ fn should_include(file_name: &str, tag: &str, config: &Config) -> bool {
     if !config.only_tags.is_empty() && !config.only_tags.contains(tag) {
         return false;
     }
-    
+
     // Ignore filters
     if config.ignore_versions.contains(file_name) || config.ignore_tags.contains(tag) {
         return false;
@@ -206,15 +219,14 @@ fn should_include(file_name: &str, tag: &str, config: &Config) -> bool {
 
 /// Extracts numerical components from a version string.
 fn get_version_components(version_str: &str) -> Vec<u32> {
-    version_str.split('.')
+    version_str
+        .split('.')
         .map(|s| s.parse::<u32>().unwrap_or(0))
         .collect()
 }
 
 /// Helper function for sorting: Creates a numerical vector from the directory name.
-fn get_version_vec(path: &PathBuf) -> Vec<u32> {
-    let ver_str = path.file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("");
+fn get_version_vec(path: &Path) -> Vec<u32> {
+    let ver_str = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
     get_version_components(ver_str)
 }
