@@ -1,9 +1,6 @@
-//! # GIMP-Directory Getter
+//! A gimp-directory Getter
 //!
-//! Looks for GIMP 3 configuration/settings directories and outputs their paths.
-//!
-//! It supports …
-//! It supports filtering by release cycles (even/odd), by versions, installation sources (tags).
+//! It looks for GIMP 3 configuration/settings directories and outputs their paths.
 
 use std::collections::HashSet;
 use std::env;

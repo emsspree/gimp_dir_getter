@@ -4,13 +4,6 @@ This helper looks for GIMP 3
   [configuration/settings directories](https://docs.gimp.org/3.0/en/gimp-fire-up.html#gimp-concepts-setup)
   and outputs their paths.
 
-
-
-It supports filtering
-  by release cycles (even/odd),
-  by version number, and 
-  by tags for installation sources.
-
 | Options:        |      |
 | --------        | ---- |
 |`‑v`, `‑‑version`| Show program version
